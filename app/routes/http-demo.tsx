@@ -1,4 +1,4 @@
-﻿import { useCallback, useEffect, useRef, useState } from "react";
+﻿import { useRef, useState } from "react";
 import {
   Alert,
   Box,
@@ -17,7 +17,8 @@ import { useApi } from "~/lib/http/use-api";
 import { useFetch } from "~/lib/http/use-fetch";
 import { abortManager } from "~/lib/http/abort-manager";
 
-// Cliente apuntando a la API pública de prueba (independiente del apiClient del BFF)
+// Para las secciones POST usamos un cliente apuntando directamente a jsonplaceholder
+// (apiClient ya apunta a VITE_API_BASE_URL = https://jsonplaceholder.typicode.com)
 const api = new HttpClient("https://jsonplaceholder.typicode.com");
 
 interface Post {
@@ -27,7 +28,9 @@ interface Post {
   userId: number;
 }
 
-// ─── CodeBlock estilo VS Code ─────────────────────────────────────────────────: [RegExp, string][] = [
+// ─── CodeBlock estilo VS Code ─────────────────────────────────────────────────
+
+const TOKENS: [RegExp, string][] = [
   [/^(\/\/.*)/, "#6a9955"],
   [/^("(?:[^"\\]|\\.)*"|'(?:[^'\\]|\\.)*'|`(?:[^`\\]|\\.)*`)/, "#ce9178"],
   [/^\b(const|let|function|return|async|await|try|catch|new|import|from|export|default|void|if)\b/, "#c586c0"],
@@ -79,62 +82,27 @@ function CodeBlock({ code }: { code: string }) {
   );
 }
 
-// ─── Hook genérico de GET para el demo ────────────────────────────────────────
-// Replica exactamente lo que hace useFetch internamente, usando el cliente de demo
-
-function useDemoGet<T>(path: string, params?: Record<string, string | number>) {
-  const [data, setData] = useState<T | undefined>(undefined);
-  const [isLoading, setIsLoading] = useState(true);
-  const [error, setError] = useState<Error | undefined>(undefined);
-  const [trigger, setTrigger] = useState(0);
-  const paramsKey = JSON.stringify(params ?? null);
-
-  useEffect(() => {
-    const controller = new AbortController();
-    setIsLoading(true);
-    setError(undefined);
-
-    api
-      .get<T>(path, { params, signal: controller.signal })
-      .then((r) => {
-        setData(r.data);
-        setIsLoading(false);
-      })
-      .catch((err: unknown) => {
-        if (err instanceof Error && err.name === "AbortError") return;
-        setError(err instanceof Error ? err : new Error(String(err)));
-        setIsLoading(false);
-      });
-
-    return () => controller.abort();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [path, paramsKey, trigger]);
-
-  const refetch = useCallback(() => setTrigger((n) => n + 1), []);
-  return { data, isLoading, isError: !!error, error, refetch };
-}
-
 // ─── Demo principal ───────────────────────────────────────────────────────────
 
 export default function HttpDemo() {
-  // — 1. GET lista con params + refetch
+  // 1. useFetch — GET lista con params + refetch
   const [limit, setLimit] = useState(3);
-  const posts = useDemoGet<Post[]>("/posts", { _limit: limit });
+  const posts = useFetch<Post[]>("/posts", { params: { _limit: limit } });
 
-  // — 2. Query dependiente: solo fetcha al pulsar el botón
+  // 2. useFetch — query dependiente (enabled)
   const [selectedId, setSelectedId] = useState<number | "">("");
   const [postPath, setPostPath] = useState<string | null>(null);
-  const singlePost = useDemoGet<Post>(postPath ?? "/posts/1");
   const postEnabled = postPath !== null;
+  const singlePost = useFetch<Post>(postPath ?? "", { enabled: postEnabled });
 
-  // — 3. useApi — POST
+  // 3. useApi — POST (fire-and-forget)
   const [newTitle, setNewTitle] = useState("");
   const [newBody, setNewBody] = useState("");
   const createPost = useApi<Post, { title: string; body: string; userId: number }>({
     mutationFn: (vars, signal) => api.post("/posts", vars, { signal }),
   });
 
-  // — 4. executeAsync — log de pasos
+  // 4. useApi — executeAsync (awaitable)
   const [log, setLog] = useState<string[]>([]);
   const asyncOp = useApi<Post, void>({
     mutationFn: (_v, signal) =>
@@ -153,7 +121,7 @@ export default function HttpDemo() {
     }
   };
 
-  // — 5. Abort con AbortManager
+  // 5. AbortManager — cancelar request en vuelo
   const ABORT_KEY = "demo-slow-request";
   const [abortLog, setAbortLog] = useState<string[]>([]);
   const abortTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -172,17 +140,17 @@ export default function HttpDemo() {
           reject(err);
         });
       }),
-    onSuccess: () => setAbortLog((l) => [...l, "✅ Request completado sin cancelar"]),
+    onSuccess: () => setAbortLog((l) => [...l, "Completado sin cancelar"]),
   });
 
   const handleSlowStart = () => {
-    setAbortLog(["⏳ Request iniciado (4 segundos simulados)..."]);
+    setAbortLog(["Iniciado (4 segundos simulados)..."]);
     slowOp.execute();
   };
 
   const handleAbort = () => {
     abortManager.abort(ABORT_KEY);
-    setAbortLog((l) => [...l, "🛑 abortManager.abort() llamado — request cancelado"]);
+    setAbortLog((l) => [...l, "abortManager.abort() llamado — request cancelado"]);
     slowOp.reset();
   };
 
@@ -197,14 +165,13 @@ export default function HttpDemo() {
 
       <Stack spacing={3}>
 
+        {/* 1. useFetch GET con params + refetch */}
         <Card variant="outlined">
           <CardContent>
-            <Typography variant="h6" gutterBottom>1. GET lista con params + refetch</Typography>
+            <Typography variant="h6" gutterBottom>1. useFetch — GET lista con params + refetch</Typography>
             <Stack direction="row" spacing={1} sx={{ mb: 2, alignItems: "center" }}>
               {[3, 5, 10].map((n) => (
-                <Button
-                  key={n}
-                  size="small"
+                <Button key={n} size="small"
                   variant={limit === n ? "contained" : "outlined"}
                   onClick={() => setLimit(n)}
                 >
@@ -227,23 +194,27 @@ export default function HttpDemo() {
             ))}
             <Divider sx={{ mt: 2 }} />
             <CodeBlock code={`
-// useDemoGet usa useEffect + AbortController internamente
-const posts = useDemoGet<Post[]>("/posts", { _limit: limit });
+// useFetch usa apiClient (VITE_API_BASE_URL) con AbortController automatico
+const posts = useFetch<Post[]>("/posts", { params: { _limit: limit } });
 
-// Al cambiar limit se cancela el request anterior automaticamente
-// refetch() incrementa un trigger que re-ejecuta el useEffect
+// Al cambiar params se cancela el request anterior y lanza uno nuevo
+// refetch() fuerza un nuevo fetch sin cambiar los params
 posts.refetch();
+
+// Retorna: { data, isLoading, isError, isSuccess, error, refetch }
 `} />
           </CardContent>
         </Card>
 
+        {/* 2. useFetch — query dependiente (enabled) */}
         <Card variant="outlined">
           <CardContent>
             <Typography variant="h6" gutterBottom>
-              2. Query dependiente — enabled
+              2. useFetch — query dependiente con <code>enabled</code>
             </Typography>
             <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
-              El request no se lanza hasta pulsar "Buscar". Simula el patron enabled: !!id.
+              El request no se lanza hasta pulsar "Buscar". Usa la opcion{" "}
+              <code>{"enabled: !!postPath"}</code> nativa de useFetch.
             </Typography>
             <Stack direction="row" spacing={1} sx={{ alignItems: "center", mb: 2 }}>
               <TextField
@@ -285,55 +256,41 @@ posts.refetch();
             )}
             <Divider sx={{ mt: 2 }} />
             <CodeBlock code={`
-// El request no se lanza hasta que postPath tenga valor (patron "enabled")
 const [postPath, setPostPath] = useState<string | null>(null);
-const singlePost = useDemoGet<Post>(postPath ?? "/posts/1");
 
-// Solo al pulsar el boton se asigna postPath y se dispara el fetch
+// enabled: false -> no fetcha, isLoading arranca en false
+const singlePost = useFetch<Post>(postPath ?? "", { enabled: !!postPath });
+
+// Solo al setear postPath se activa el fetch
 const handleBuscar = () => setPostPath(\`/posts/\${selectedId}\`);
 `} />
           </CardContent>
         </Card>
 
+        {/* 3. useApi — execute POST */}
         <Card variant="outlined">
           <CardContent>
             <Typography variant="h6" gutterBottom>
-              3. useApi — execute (POST)
+              3. useApi — <code>execute</code> (POST)
             </Typography>
             <Stack spacing={1.5}>
-              <TextField
-                label="Titulo"
-                size="small"
-                value={newTitle}
-                onChange={(e) => setNewTitle(e.target.value)}
-              />
-              <TextField
-                label="Body"
-                size="small"
-                multiline
-                rows={2}
-                value={newBody}
-                onChange={(e) => setNewBody(e.target.value)}
-              />
+              <TextField label="Titulo" size="small" value={newTitle}
+                onChange={(e) => setNewTitle(e.target.value)} />
+              <TextField label="Body" size="small" multiline rows={2} value={newBody}
+                onChange={(e) => setNewBody(e.target.value)} />
               <Stack direction="row" spacing={1}>
                 <Button
                   variant="contained"
                   disabled={!newTitle || createPost.isPending}
-                  onClick={() =>
-                    createPost.execute({ title: newTitle, body: newBody, userId: 1 })
-                  }
+                  onClick={() => createPost.execute({ title: newTitle, body: newBody, userId: 1 })}
                 >
                   {createPost.isPending ? <CircularProgress size={18} /> : "Crear post"}
                 </Button>
                 {(createPost.isSuccess || createPost.isError) && (
-                  <Button variant="text" onClick={createPost.reset}>
-                    Reset
-                  </Button>
+                  <Button variant="text" onClick={createPost.reset}>Reset</Button>
                 )}
               </Stack>
-              {createPost.isError && (
-                <Alert severity="error">{createPost.error?.message}</Alert>
-              )}
+              {createPost.isError && <Alert severity="error">{createPost.error?.message}</Alert>}
               {createPost.isSuccess && createPost.data && (
                 <Alert severity="success">
                   Creado con id <strong>{createPost.data.id}</strong>:{" "}
@@ -347,19 +304,20 @@ const createPost = useApi<Post, { title: string; body: string; userId: number }>
   mutationFn: (vars, signal) => api.post("/posts", vars, { signal }),
 });
 
-// execute() es fire-and-forget: no lanza aunque aborte
+// execute() es fire-and-forget: no lanza si aborta
 createPost.execute({ title, body, userId: 1 });
 
-// Estados disponibles: isIdle | isPending | isSuccess | isError
+// Estados: isIdle | isPending | isSuccess | isError
 // createPost.reset() vuelve a isIdle
 `} />
           </CardContent>
         </Card>
 
+        {/* 4. useApi — executeAsync */}
         <Card variant="outlined">
           <CardContent>
             <Typography variant="h6" gutterBottom>
-              4. useApi — executeAsync (awaitable)
+              4. useApi — <code>executeAsync</code> (awaitable)
             </Typography>
             <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
               Devuelve una Promise — util para encadenar logica despues de la respuesta.
@@ -371,16 +329,10 @@ createPost.execute({ title, body, userId: 1 });
                 disabled={asyncOp.isPending}
                 sx={{ alignSelf: "flex-start" }}
               >
-                {asyncOp.isPending ? (
-                  <CircularProgress size={18} />
-                ) : (
-                  "Ejecutar y esperar resultado"
-                )}
+                {asyncOp.isPending ? <CircularProgress size={18} /> : "Ejecutar y esperar resultado"}
               </Button>
               {log.map((line, i) => (
-                <Typography key={i} variant="body2" sx={{ fontFamily: "monospace" }}>
-                  {line}
-                </Typography>
+                <Typography key={i} variant="body2" sx={{ fontFamily: "monospace" }}>{line}</Typography>
               ))}
             </Stack>
             <Divider sx={{ mt: 2 }} />
@@ -396,7 +348,7 @@ console.log(res.data.id, res.status); // id del recurso creado + HTTP 201
           </CardContent>
         </Card>
 
-        {/* ── 5. Abort con AbortManager ── */}
+        {/* 5. AbortManager */}
         <Card variant="outlined">
           <CardContent>
             <Typography variant="h6" gutterBottom>
@@ -409,31 +361,20 @@ console.log(res.data.id, res.status); // id del recurso creado + HTTP 201
               error al estado del hook.
             </Typography>
             <Stack direction="row" spacing={1} sx={{ alignItems: "center", mb: 1 }}>
-              <Button
-                variant="contained"
-                disabled={slowOp.isPending}
-                onClick={handleSlowStart}
-              >
+              <Button variant="contained" disabled={slowOp.isPending} onClick={handleSlowStart}>
                 {slowOp.isPending ? <CircularProgress size={18} /> : "Iniciar (4 s)"}
               </Button>
-              <Button
-                variant="outlined"
-                color="error"
-                disabled={!slowOp.isPending}
-                onClick={handleAbort}
-              >
+              <Button variant="outlined" color="error" disabled={!slowOp.isPending} onClick={handleAbort}>
                 Cancelar
               </Button>
             </Stack>
             {abortLog.map((line, i) => (
-              <Typography key={i} variant="body2" sx={{ fontFamily: "monospace" }}>
-                {line}
-              </Typography>
+              <Typography key={i} variant="body2" sx={{ fontFamily: "monospace" }}>{line}</Typography>
             ))}
             <Divider sx={{ mt: 2 }} />
             <CodeBlock code={`
 // AbortManager mantiene un Map<string, AbortController>
-// create(key) cancela automaticamente el controller previo con la misma clave
+// create(key) cancela el controller previo con la misma clave
 const controller = abortManager.create("demo-slow-request");
 
 // Para cancelar desde cualquier parte de la UI:
