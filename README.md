@@ -1,87 +1,63 @@
-# Welcome to React Router!
-
-A modern, production-ready template for building full-stack React applications using React Router.
-
-[![Open in StackBlitz](https://developer.stackblitz.com/img/open_in_stackblitz.svg)](https://stackblitz.com/github/remix-run/react-router-templates/tree/main/default)
+# HTTP Wrapper
 
 ## Features
 
-- 🚀 Server-side rendering
-- ⚡️ Hot Module Replacement (HMR)
-- 📦 Asset bundling and optimization
-- 🔄 Data loading and mutations
-- 🔒 TypeScript by default
-- 🎉 TailwindCSS for styling
-- 📖 [React Router docs](https://reactrouter.com/)
+| Feature | Descripción |
+|---|---|
+| **Cancelación automática** | Cada `useFetch` crea un `AbortController` que se activa al desmontar el componente o cambiar params — sin memory leaks ni race conditions |
+| **Queries dependientes** | `enabled: false` evita el request hasta que los datos necesarios estén disponibles |
+| **Tipado end-to-end** | `useFetch<User[]>` / `useApi<User, CreateDto>` — sin `any`, errores de tipo en compile time |
+| **Estado declarativo** | `isLoading`, `isError`, `isSuccess` listos para renderizar — sin boilerplate de `useState` manual |
+| **Errores normalizados** | `ApiError` siempre incluye `status`, `url` y `body` — el mismo shape independientemente del endpoint |
+| **Refetch manual** | `refetch()` relanza el mismo request sin recargar la página |
+| **Actions con callbacks** | `onSuccess`, `onError`, `onSettled` + `execute` (fire-and-forget) y `executeAsync` (awaitable) |
+| **AbortManager** | Para requests imperativos repetidos: cancela el anterior automáticamente usando la misma key |
+| **Preparado para TanStack Query** | Firmas compatibles — migrar es cambiar el import, no reescribir la lógica |
 
-## Getting Started
+## Ventajas sobre `fetch` directo en un `useEffect`
 
-### Installation
+```ts
+// ❌ Sin wrapper — 15 líneas de boilerplate por cada request
+useEffect(() => {
+  let cancelled = false;
+  setLoading(true);
+  fetch("/users")
+    .then(r => { if (!r.ok) throw new Error(); return r.json(); })
+    .then(data => { if (!cancelled) setData(data); })
+    .catch(err => { if (!cancelled) setError(err); })
+    .finally(() => { if (!cancelled) setLoading(false); });
+  return () => { cancelled = true; };
+}, []);
 
-Install the dependencies:
-
-```bash
-npm install
+// ✅ Con wrapper — 1 línea
+const { data, isLoading, error } = useFetch<User[]>("/users");
 ```
 
-### Development
+- Sin el flag `cancelled` manual para evitar actualizar estado tras desmontar
+- Sin try/catch repetido en cada componente
+- Sin gestión manual de `loading` / `error` states
+- Sin olvidarse de abortar en el cleanup
 
-Start the development server with HMR:
+```ts
+// GET
+const { data, isLoading, error } = useFetch<User[]>("/users");
 
-```bash
-npm run dev
+// GET con query params
+const { data } = useFetch<User[]>("/users", { params: { page: 1, limit: 20 } });
+
+// GET condicional (espera hasta que `id` exista)
+const { data } = useFetch<User>(`/users/${id}`, { enabled: !!id });
+
+// Refetch manual — vuelve a ejecutar el mismo request
+// útil tras un execute o para un botón "recargar"
+const { data, refetch } = useFetch<User[]>("/users");
+<button onClick={refetch}>Recargar</button>
+
+// POST / PUT / PATCH / DELETE
+const { execute, isPending } = useApi({
+  mutationFn: (body: CreateUserDto) => apiClient.post("/users", body),
+  onSuccess: () => refetch(),
+});
 ```
 
-Your application will be available at `http://localhost:5173`.
-
-## Building for Production
-
-Create a production build:
-
-```bash
-npm run build
-```
-
-## Deployment
-
-### Docker Deployment
-
-To build and run using Docker:
-
-```bash
-docker build -t my-app .
-
-# Run the container
-docker run -p 3000:3000 my-app
-```
-
-The containerized application can be deployed to any platform that supports Docker, including:
-
-- AWS ECS
-- Google Cloud Run
-- Azure Container Apps
-- Digital Ocean App Platform
-- Fly.io
-- Railway
-
-### DIY Deployment
-
-If you're familiar with deploying Node applications, the built-in app server is production-ready.
-
-Make sure to deploy the output of `npm run build`
-
-```
-├── package.json
-├── package-lock.json (or pnpm-lock.yaml, or bun.lockb)
-├── build/
-│   ├── client/    # Static assets
-│   └── server/    # Server-side code
-```
-
-## Styling
-
-This template comes with [Tailwind CSS](https://tailwindcss.com/) already configured for a simple default starting experience. You can use whatever CSS framework you prefer.
-
----
-
-Built with ❤️ using React Router.
+> El `AbortController` se gestiona automáticamente — el request se cancela al desmontar el componente o al cambiar el path/params.
