@@ -5,7 +5,7 @@ WORKDIR /app
 
 # Instalar dependencias primero (aprovecha cache de capas)
 COPY package*.json ./
-RUN npm ci
+RUN npm install
 
 # Copiar fuentes
 COPY . .
