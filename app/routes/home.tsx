@@ -52,9 +52,9 @@ export default function Home() {
           <Card key={mod.path} variant="outlined" sx={{ transition: "box-shadow 0.2s", "&:hover": { boxShadow: 4 } }}>
             <CardActionArea component={Link} to={mod.path} sx={{ p: 0 }}>
               <CardContent sx={{ p: 3 }}>
-                <Stack direction="row" alignItems="flex-start" justifyContent="space-between" spacing={2}>
+                <Stack direction="row" spacing={2} sx={{ alignItems: "flex-start", justifyContent: "space-between" }}>
                   <Box>
-                    <Stack direction="row" spacing={1} alignItems="center" sx={{ mb: 0.5 }}>
+                    <Stack direction="row" spacing={1} sx={{ alignItems: "center", mb: 0.5 }}>
                       <Typography variant="h6" sx={{ fontWeight: 700 }}>
                         {mod.title}
                       </Typography>
@@ -68,7 +68,7 @@ export default function Home() {
                     <Typography variant="body2" color="text.secondary" sx={{ mb: 1.5 }}>
                       {mod.description}
                     </Typography>
-                    <Stack direction="row" spacing={0.75} flexWrap="wrap" useFlexGap>
+                    <Stack direction="row" spacing={0.75} sx={{ flexWrap: "wrap" }}>
                       {mod.tags.map((tag) => (
                         <Chip key={tag} label={tag} size="small" sx={{ fontFamily: "monospace", fontSize: 11 }} />
                       ))}

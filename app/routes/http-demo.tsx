@@ -336,13 +336,25 @@ createPost.execute({ title, body, userId: 1 });
             </Stack>
             <Divider sx={{ mt: 2 }} />
             <CodeBlock code={`
+import { useSnackbar } from "notistack";
+
+const { enqueueSnackbar } = useSnackbar();
+
 const asyncOp = useApi<Post, void>({
   mutationFn: (_v, signal) => api.post("/posts", { title: "async test" }, { signal }),
 });
 
-// executeAsync() devuelve una Promise — podemos await y encadenar logica
-const res = await asyncOp.executeAsync();
-console.log(res.data.id, res.status); // id del recurso creado + HTTP 201
+// executeAsync() lanza si el request falla -> capturamos con try/catch
+const handleSubmit = async () => {
+  try {
+    const res = await asyncOp.executeAsync();
+    enqueueSnackbar(\`Post #\${res.data.id} creado\`, { variant: "success" });
+    navigate("/posts");
+  } catch (err) {
+    const msg = err instanceof Error ? err.message : "Error desconocido";
+    enqueueSnackbar(msg, { variant: "error" });
+  }
+};
 `} />
           </CardContent>
         </Card>
