@@ -27,7 +27,11 @@ export class HttpClient {
     const { params, body, signal, headers: extraHeaders, ...restInit } = options;
 
     // Construye la URL con query params
-    const url = new URL(`${this.baseURL}${path.startsWith("/") ? path : `/${path}`}`);
+    // Soporta tanto baseURL absoluta ("https://api.example.com") como relativa ("/api")
+    const fullPath = `${this.baseURL}${path.startsWith("/") ? path : `/${path}`}`;
+    const isAbsolute = /^https?:\/\//.test(fullPath);
+    const base = isAbsolute ? undefined : (typeof window !== "undefined" ? window.location.origin : "http://localhost");
+    const url = new URL(fullPath, base);
     if (params) {
       Object.entries(params).forEach(([key, value]) => {
         if (value !== null && value !== undefined) {

@@ -1,63 +1,82 @@
-# HTTP Wrapper
+# mscni — Dev Lab
 
-## Features
+Colección de demostraciones interactivas de módulos de arquitectura frontend: HTTP wrapper, gestión de estado, autenticación, y más.
 
-| Feature | Descripción |
+Stack: **React Router v7** (SPA) · **TypeScript** · **MUI v6** · **Zustand v5**
+
+## Inicio rápido
+
+```bash
+npm install
+npm run dev        # http://localhost:5173
+```
+
+Para verificar tipos:
+
+```bash
+npm run typecheck
+```
+
+---
+
+## Demostraciones
+
+### HTTP Wrapper — `/http-demo`
+
+Cliente `fetch` personalizado con cancelación, manejo de errores uniforme y hooks compatibles con la API de TanStack Query.
+
+| Sección | Qué demuestra |
 |---|---|
-| **Cancelación automática** | Cada `useFetch` crea un `AbortController` que se activa al desmontar el componente o cambiar params — sin memory leaks ni race conditions |
-| **Queries dependientes** | `enabled: false` evita el request hasta que los datos necesarios estén disponibles |
-| **Tipado end-to-end** | `useFetch<User[]>` / `useApi<User, CreateDto>` — sin `any`, errores de tipo en compile time |
-| **Estado declarativo** | `isLoading`, `isError`, `isSuccess` listos para renderizar — sin boilerplate de `useState` manual |
-| **Errores normalizados** | `ApiError` siempre incluye `status`, `url` y `body` — el mismo shape independientemente del endpoint |
-| **Refetch manual** | `refetch()` relanza el mismo request sin recargar la página |
-| **Actions con callbacks** | `onSuccess`, `onError`, `onSettled` + `execute` (fire-and-forget) y `executeAsync` (awaitable) |
-| **AbortManager** | Para requests imperativos repetidos: cancela el anterior automáticamente usando la misma key |
-| **Preparado para TanStack Query** | Firmas compatibles — migrar es cambiar el import, no reescribir la lógica |
+| 1. `useFetch` GET + params | Request declarativo con AbortController automático. Cambiar `_limit` cancela el request anterior. |
+| 2. `useFetch` + `enabled` | Query dependiente: el fetch solo se lanza cuando `enabled: true`. Simula `enabled: !!id` de TanStack Query. |
+| 3. `useApi` — `execute` | Mutación POST fire-and-forget. Estados: `isIdle` → `isPending` → `isSuccess / isError`. |
+| 4. `useApi` — `executeAsync` | Igual que `execute` pero retorna una `Promise` — permite `await` y encadenar lógica. |
+| 5. `AbortManager` | Cancelación de requests en vuelo con clave. `abortManager.abort(key)` interrumpe sin propagar error al estado del hook. |
 
-## Ventajas sobre `fetch` directo en un `useEffect`
+**Archivos clave:**
 
-```ts
-// ❌ Sin wrapper — 15 líneas de boilerplate por cada request
-useEffect(() => {
-  let cancelled = false;
-  setLoading(true);
-  fetch("/users")
-    .then(r => { if (!r.ok) throw new Error(); return r.json(); })
-    .then(data => { if (!cancelled) setData(data); })
-    .catch(err => { if (!cancelled) setError(err); })
-    .finally(() => { if (!cancelled) setLoading(false); });
-  return () => { cancelled = true; };
-}, []);
-
-// ✅ Con wrapper — 1 línea
-const { data, isLoading, error } = useFetch<User[]>("/users");
+```
+app/lib/http/
+├── client.ts          # HttpClient + singleton apiClient
+├── types.ts           # RequestOptions, ApiResponse, ApiError
+├── use-fetch.ts       # Hook declarativo GET
+├── use-api.ts         # Hook imperativo POST/PUT/PATCH/DELETE
+├── abort-manager.ts   # AbortManager con mapa de keys
+└── README.md          # Docs de uso y guía de migración a TanStack Query
 ```
 
-- Sin el flag `cancelled` manual para evitar actualizar estado tras desmontar
-- Sin try/catch repetido en cada componente
-- Sin gestión manual de `loading` / `error` states
-- Sin olvidarse de abortar en el cleanup
+---
 
-```ts
-// GET
-const { data, isLoading, error } = useFetch<User[]>("/users");
+## Variables de entorno
 
-// GET con query params
-const { data } = useFetch<User[]>("/users", { params: { page: 1, limit: 20 } });
+| Variable | Descripción | Ejemplo |
+|---|---|---|
+| `VITE_API_BASE_URL` | Base URL del BFF / API. En dev usa el proxy de Vite. | `/api` |
 
-// GET condicional (espera hasta que `id` exista)
-const { data } = useFetch<User>(`/users/${id}`, { enabled: !!id });
+El proxy de Vite reenvía `/api/*` → `https://jsonplaceholder.typicode.com` (configurado en `vite.config.ts`).
 
-// Refetch manual — vuelve a ejecutar el mismo request
-// útil tras un execute o para un botón "recargar"
-const { data, refetch } = useFetch<User[]>("/users");
-<button onClick={refetch}>Recargar</button>
+- Digital Ocean App Platform
+- Fly.io
+- Railway
 
-// POST / PUT / PATCH / DELETE
-const { execute, isPending } = useApi({
-  mutationFn: (body: CreateUserDto) => apiClient.post("/users", body),
-  onSuccess: () => refetch(),
-});
+### DIY Deployment
+
+If you're familiar with deploying Node applications, the built-in app server is production-ready.
+
+Make sure to deploy the output of `npm run build`
+
+```
+├── package.json
+├── package-lock.json (or pnpm-lock.yaml, or bun.lockb)
+├── build/
+│   ├── client/    # Static assets
+│   └── server/    # Server-side code
 ```
 
-> El `AbortController` se gestiona automáticamente — el request se cancela al desmontar el componente o al cambiar el path/params.
+## Styling
+
+This template comes with [Tailwind CSS](https://tailwindcss.com/) already configured for a simple default starting experience. You can use whatever CSS framework you prefer.
+
+---
+
+Built with ❤️ using React Router.

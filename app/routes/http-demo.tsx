@@ -17,9 +17,8 @@ import { useApi } from "~/lib/http/use-api";
 import { useFetch } from "~/lib/http/use-fetch";
 import { abortManager } from "~/lib/http/abort-manager";
 
-// Para las secciones POST usamos un cliente apuntando directamente a jsonplaceholder
-// (apiClient ya apunta a VITE_API_BASE_URL = https://jsonplaceholder.typicode.com)
-const api = new HttpClient("https://jsonplaceholder.typicode.com");
+// El cliente local del demo usa el proxy de Vite (/api -> jsonplaceholder)
+const api = new HttpClient("/api");
 
 interface Post {
   id: number;
@@ -186,7 +185,7 @@ export default function HttpDemo() {
             {posts.isError && <Alert severity="error">{posts.error?.message}</Alert>}
             {posts.data?.map((p) => (
               <Box key={p.id} sx={{ py: 0.5, borderBottom: "1px solid", borderColor: "divider" }}>
-                <Typography variant="body2">
+                <Typography variant="body2" component="div">
                   <Chip label={`#${p.id}`} size="small" sx={{ mr: 1 }} />
                   {p.title}
                 </Typography>
