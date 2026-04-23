@@ -46,8 +46,8 @@ export default function Home() {
             Dev Lab
           </Typography>
           <Typography variant="body1" color="text.secondary" sx={{ maxWidth: 560 }}>
-            Coleccion de demostraciones interactivas de los modulos del proyecto.
-            Cada seccion muestra el codigo real que se ejecuta.
+            Colección de demostraciones interactivas de prueba a modo demostrativo.
+            Cada sección muestra el código de los mismos.
           </Typography>
         </Box>
         <Box
