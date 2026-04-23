@@ -9,6 +9,7 @@ import {
   Typography,
 } from "@mui/material";
 import ArrowForwardIcon from "@mui/icons-material/ArrowForward";
+import rrLogo from "~/welcome/logo-light.svg";
 
 export function meta() {
   return [{ title: "mscni — Dev Lab" }];
@@ -36,16 +37,26 @@ const MODULES: Module[] = [
 export default function Home() {
   return (
     <Box sx={{ maxWidth: 900, mx: "auto", p: { xs: 3, md: 6 } }}>
-      <Typography variant="overline" color="text.secondary" letterSpacing={2}>
-        mscni
-      </Typography>
-      <Typography variant="h3" sx={{ fontWeight: 800, mb: 1 }}>
-        Dev Lab
-      </Typography>
-      <Typography variant="body1" color="text.secondary" sx={{ mb: 5, maxWidth: 560 }}>
-        Coleccion de demostraciones interactivas de los modulos del proyecto.
-        Cada seccion muestra el codigo real que se ejecuta.
-      </Typography>
+      <Box sx={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", mb: 5 }}>
+        <Box>
+          <Typography variant="overline" color="text.secondary" letterSpacing={2}>
+            mscni
+          </Typography>
+          <Typography variant="h3" sx={{ fontWeight: 800, mb: 1 }}>
+            Dev Lab
+          </Typography>
+          <Typography variant="body1" color="text.secondary" sx={{ maxWidth: 560 }}>
+            Coleccion de demostraciones interactivas de los modulos del proyecto.
+            Cada seccion muestra el codigo real que se ejecuta.
+          </Typography>
+        </Box>
+        <Box
+          component="img"
+          src={rrLogo}
+          alt="React Router"
+          sx={{ height: 36, width: "auto", mt: 1, flexShrink: 0, ml: 4, opacity: 0.85 }}
+        />
+      </Box>
 
       <Stack spacing={2}>
         {MODULES.map((mod) => (
