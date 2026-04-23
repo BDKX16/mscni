@@ -1,0 +1,9 @@
+services:
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    ports:
+      # Solo accesible desde localhost -> tu nginx externo hace el proxy inverso
+      - "127.0.0.1:7111:80"
+    restart: unless-stopped
